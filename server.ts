@@ -49,19 +49,32 @@ initAdmin();
 const otps = new Map<string, { otp: string, expires: number }>();
 
 // API Routes
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', database: firebaseConfig.firestoreDatabaseId });
+});
+
 app.post('/api/admin/login', async (req, res) => {
   const { password } = req.body;
+  console.log('Login attempt received');
   try {
     const adminDoc = await db.collection('settings').doc('admin').get();
+    if (!adminDoc.exists) {
+      console.log('Admin doc not found, initializing...');
+      await initAdmin();
+      return res.status(500).json({ success: false, message: 'Admin settings were not initialized. Please try again.' });
+    }
+    
     const adminData = adminDoc.data();
+    console.log('Admin data retrieved');
     
     if (adminData && adminData.password === password) {
       res.json({ success: true, message: 'Login successful' });
     } else {
       res.status(401).json({ success: false, message: 'Invalid password' });
     }
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Database error' });
+  } catch (error: any) {
+    console.error('Login API Error:', error);
+    res.status(500).json({ success: false, message: 'Database error: ' + error.message });
   }
 });
 
