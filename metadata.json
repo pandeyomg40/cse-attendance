@@ -1,0 +1,5 @@
+{
+  "name": "CSE Face Attendance System",
+  "description": "A biometric attendance system for CSE students using real-time face recognition.",
+  "requestFramePermissions": ["camera"]
+}

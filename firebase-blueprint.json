@@ -1,0 +1,61 @@
+{
+  "entities": {
+    "student": {
+      "title": "Student",
+      "description": "A student registered in the system.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the student." },
+        "name": { "type": "string", "description": "Full name of the student." },
+        "rollNumber": { "type": "string", "description": "Roll number of the student." },
+        "photo": { "type": "string", "description": "Base64 encoded photo of the student." },
+        "descriptor": { "type": "string", "description": "JSON stringified face descriptor array." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of registration." }
+      },
+      "required": ["id", "name", "rollNumber", "descriptor"]
+    },
+    "attendanceRecord": {
+      "title": "Attendance Record",
+      "description": "A record of a student's attendance for a specific day.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the record." },
+        "studentId": { "type": "string", "description": "Reference to the student ID." },
+        "studentName": { "type": "string", "description": "Name of the student at the time of record." },
+        "rollNumber": { "type": "string", "description": "Roll number of the student." },
+        "date": { "type": "string", "description": "Date of attendance (YYYY-MM-DD)." },
+        "signInTime": { "type": "string", "description": "Time of sign in (HH:mm)." },
+        "signOutTime": { "type": "string", "description": "Time of sign out (HH:mm)." },
+        "status": { "type": "string", "enum": ["Present", "Absent", "Late"], "description": "Attendance status." }
+      },
+      "required": ["id", "studentId", "date", "status"]
+    },
+    "schedule": {
+      "title": "Schedule",
+      "description": "A daily routine or notification posted by admin.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the schedule." },
+        "time": { "type": "string", "description": "Time of the event." },
+        "subject": { "type": "string", "description": "Subject or title of the event." },
+        "room": { "type": "string", "description": "Room or location." },
+        "type": { "type": "string", "enum": ["class", "exam", "event"], "description": "Type of event." }
+      },
+      "required": ["id", "time", "subject"]
+    }
+  },
+  "firestore": {
+    "/students/{studentId}": {
+      "schema": "student",
+      "description": "Collection of registered students."
+    },
+    "/attendance/{recordId}": {
+      "schema": "attendanceRecord",
+      "description": "Collection of attendance logs."
+    },
+    "/schedules/{scheduleId}": {
+      "schema": "schedule",
+      "description": "Collection of daily schedules and notifications."
+    }
+  }
+}

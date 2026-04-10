@@ -1,0 +1,104 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: students
+// Document ID: auto-generated or studentId
+// Fields:
+//   - id: string (required) - Unique ID
+//   - name: string (required) - Student name
+//   - rollNumber: string (required) - Student roll number
+//   - photo: string (optional) - Base64 photo
+//   - descriptor: string (required) - JSON stringified face descriptor
+//   - createdAt: string (optional) - ISO date string
+//
+// Collection: attendance
+// Document ID: auto-generated
+// Fields:
+//   - id: string (required)
+//   - studentId: string (required)
+//   - studentName: string (optional)
+//   - date: string (required) - YYYY-MM-DD
+//   - signInTime: string (optional)
+//   - signOutTime: string (optional)
+//   - status: string (required) - Present, Absent, Late
+//
+// Collection: schedules
+// Document ID: auto-generated
+// Fields:
+//   - id: string (required)
+//   - time: string (required)
+//   - subject: string (required)
+//   - room: string (optional)
+//   - type: string (optional)
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == "pandeyomg40@gmail.com");
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidStudent(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.rollNumber is string && data.rollNumber.size() > 0 && data.rollNumber.size() < 50 &&
+             data.descriptor is string && data.descriptor.size() > 0 && data.descriptor.size() < 10000;
+    }
+
+    function isValidAttendance(data) {
+      return data.studentId is string && data.date is string && data.date.matches("^\\d{4}-\\d{2}-\\d{2}$") &&
+             data.status in ['Present', 'Absent', 'Late'];
+    }
+
+    function isValidSchedule(data) {
+      return data.time is string && data.subject is string && data.subject.size() > 0;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    // Students Collection
+    match /students/{studentId} {
+      allow read: if true; // Publicly readable for biometric matching
+      allow create, update, delete: if isAdmin() && isValidStudent(request.resource.data);
+    }
+
+    // Attendance Collection
+    match /attendance/{recordId} {
+      allow read: if true; // Publicly readable for students to see logs
+      allow create, update: if true; // Students can mark attendance, Admin can edit
+      allow delete: if isAdmin();
+    }
+
+    // Schedules Collection
+    match /schedules/{scheduleId} {
+      allow read: if true; // Publicly readable
+      allow create, update, delete: if isAdmin() && isValidSchedule(request.resource.data);
+    }
+  }
+}
