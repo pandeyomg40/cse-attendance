@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback, Component, ErrorInfo, ReactNode } from 'react';
-import { Camera, UserPlus, ClipboardList, Settings, CheckCircle, XCircle, Trash2, ShieldCheck, RefreshCw, Bell, Calendar, LogIn, LogOut, Plus, Clock, BarChart3, ArrowRightLeft } from 'lucide-react';
+import { Camera, UserPlus, ClipboardList, Settings, CheckCircle, XCircle, Trash2, ShieldCheck, RefreshCw, Bell, Calendar, LogIn, LogOut, Plus, Clock, BarChart3, ArrowRightLeft, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import * as faceapi from 'face-api.js';
 import { loadModels, getFaceDescriptor, compareFaces, capturePhoto } from './lib/faceApi';
@@ -84,7 +84,11 @@ function AttendanceApp() {
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminEmail, setAdminEmail] = useState('pandeyomg40@gmail.com');
   const [adminPassword, setAdminPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
   
   // Attendance Mode Logic
   const [attendanceMode, setAttendanceMode] = useState<'Sign In' | 'Sign Out'>('Sign In');
@@ -122,23 +126,27 @@ function AttendanceApp() {
         setMessage({ text: "Please enter a password.", type: 'error' });
         return;
       }
-      const result = await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
-      if (result.user.email !== 'pandeyomg40@gmail.com') {
-        await signOut(auth);
-        setMessage({ text: "Access Denied: Only authorized admin can login.", type: 'error' });
-      } else {
+      
+      const response = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: adminPassword })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setIsAdminLoggedIn(true);
         setMessage({ text: "Admin logged in successfully", type: 'success' });
         setShowAdminLogin(false);
         setAdminPassword('');
         setActiveTab('register');
+      } else {
+        setMessage({ text: data.message || "Invalid password.", type: 'error' });
       }
     } catch (error: any) {
       console.error("Login error:", error);
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        setMessage({ text: "Invalid email or password.", type: 'error' });
-      } else {
-        setMessage({ text: "Login failed. Please try again.", type: 'error' });
-      }
+      setMessage({ text: "Login failed. Server might be starting...", type: 'error' });
     }
   };
 
@@ -149,6 +157,7 @@ function AttendanceApp() {
         await signOut(auth);
         setMessage({ text: "Access Denied: Only authorized admin can login.", type: 'error' });
       } else {
+        setIsAdminLoggedIn(true);
         setMessage({ text: "Admin logged in successfully", type: 'success' });
         setShowAdminLogin(false);
         setActiveTab('register');
@@ -159,18 +168,54 @@ function AttendanceApp() {
     }
   };
 
-  const handleForgotPassword = async () => {
+  const handleSendOtp = async () => {
     if (!adminEmail) {
       setMessage({ text: "Please enter your email address first.", type: 'error' });
       return;
     }
     try {
-      await sendPasswordResetEmail(auth, adminEmail);
-      setMessage({ text: "Password reset email sent! Check your inbox.", type: 'success' });
-      setIsResettingPassword(false);
+      const response = await fetch('/api/admin/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: adminEmail })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setMessage({ text: "OTP sent to your email!", type: 'success' });
+        setOtpSent(true);
+      } else {
+        setMessage({ text: data.message, type: 'error' });
+      }
+    } catch (error: any) {
+      console.error("OTP error:", error);
+      setMessage({ text: "Failed to send OTP.", type: 'error' });
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!otp || !newPassword) {
+      setMessage({ text: "Please enter OTP and new password.", type: 'error' });
+      return;
+    }
+    try {
+      const response = await fetch('/api/admin/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: adminEmail, otp, newPassword })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setMessage({ text: "Password reset successful! You can now login.", type: 'success' });
+        setIsResettingPassword(false);
+        setOtpSent(false);
+        setOtp('');
+        setNewPassword('');
+      } else {
+        setMessage({ text: data.message, type: 'error' });
+      }
     } catch (error: any) {
       console.error("Reset error:", error);
-      setMessage({ text: "Failed to send reset email. " + error.message, type: 'error' });
+      setMessage({ text: "Reset failed.", type: 'error' });
     }
   };
 
@@ -453,22 +498,22 @@ function AttendanceApp() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
       {/* Header */}
-      <header className="bg-indigo-700 text-white p-6 shadow-lg sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto flex justify-between items-center">
+      <header className="bg-indigo-700 text-white p-4 sm:p-6 shadow-lg sticky top-0 z-50">
+        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3">
             <div className="bg-white/20 p-2 rounded-lg">
-              <ShieldCheck className="w-8 h-8" />
+              <ShieldCheck className="w-6 h-6 sm:w-8 sm:h-8" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">CSE Attendance</h1>
-              <p className="text-indigo-100 text-sm">{isAdminLoggedIn ? 'Admin Mode' : 'Student Mode'}</p>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight">CSE Attendance</h1>
+              <p className="text-indigo-100 text-xs sm:text-sm">{isAdminLoggedIn ? 'Admin Mode' : 'Student Mode'}</p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 w-full sm:w-auto justify-center sm:justify-end">
             {!isAdminLoggedIn ? (
               <button 
                 onClick={() => setShowAdminLogin(true)}
-                className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl flex items-center gap-2 transition-all font-semibold"
+                className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl flex items-center gap-2 transition-all font-semibold text-sm sm:text-base w-full sm:w-auto justify-center"
               >
                 <LogIn className="w-4 h-4" />
                 Admin Login
@@ -476,7 +521,7 @@ function AttendanceApp() {
             ) : (
               <button 
                 onClick={handleLogout}
-                className="bg-rose-500/20 hover:bg-rose-500/30 text-rose-100 px-4 py-2 rounded-xl flex items-center gap-2 transition-all font-semibold"
+                className="bg-rose-500/20 hover:bg-rose-500/30 text-rose-100 px-4 py-2 rounded-xl flex items-center gap-2 transition-all font-semibold text-sm sm:text-base w-full sm:w-auto justify-center"
               >
                 <LogOut className="w-4 h-4" />
                 Logout
@@ -486,7 +531,7 @@ function AttendanceApp() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto p-6">
+      <main className="max-w-4xl mx-auto p-4 sm:p-6">
         {/* Alerts */}
         <AnimatePresence>
           {message && (
@@ -527,7 +572,7 @@ function AttendanceApp() {
         </div>
 
         {/* Tab Content */}
-        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-8 border border-slate-100 overflow-hidden min-h-[500px]">
+        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-4 sm:p-8 border border-slate-100 overflow-hidden min-h-[500px]">
           {activeTab === 'attendance' && (
             <div className="flex flex-col items-center gap-8">
               {/* Mode Toggle */}
@@ -937,7 +982,7 @@ function AttendanceApp() {
                         </div>
                       </div>
                       
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
                           <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Monthly Recap</p>
                           <p className="text-xl font-bold text-slate-800">{stats.monthlyRecap} Days</p>
@@ -1031,7 +1076,7 @@ function AttendanceApp() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl"
+              className="bg-white rounded-3xl p-6 sm:p-8 w-[95%] max-w-md shadow-2xl"
             >
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-slate-800">
@@ -1047,22 +1092,62 @@ function AttendanceApp() {
 
               {isResettingPassword ? (
                 <div className="space-y-4">
-                  <p className="text-slate-500 text-sm">Enter your email to receive a password reset link.</p>
-                  <input
-                    type="email"
-                    value={adminEmail}
-                    onChange={(e) => setAdminEmail(e.target.value)}
-                    placeholder="Admin Email"
-                    className="w-full px-4 py-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
-                  <button
-                    onClick={handleForgotPassword}
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-xl font-bold shadow-lg flex justify-center items-center gap-2 transition-all"
-                  >
-                    Send Reset Email
-                  </button>
+                  {!otpSent ? (
+                    <>
+                      <p className="text-slate-500 text-sm">Enter your email to receive a 6-digit OTP.</p>
+                      <input
+                        type="email"
+                        value={adminEmail}
+                        onChange={(e) => setAdminEmail(e.target.value)}
+                        placeholder="Admin Email"
+                        className="w-full px-4 py-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
+                      />
+                      <button
+                        onClick={handleSendOtp}
+                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-xl font-bold shadow-lg flex justify-center items-center gap-2 transition-all"
+                      >
+                        Send OTP
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-slate-500 text-sm">Enter the OTP sent to your email and your new password.</p>
+                      <input
+                        type="text"
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value)}
+                        placeholder="6-Digit OTP"
+                        className="w-full px-4 py-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-center tracking-[0.5em] font-bold"
+                        maxLength={6}
+                      />
+                      <div className="relative">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="New Password"
+                          className="w-full px-4 py-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
+                        />
+                        <button 
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        >
+                          {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                      <button
+                        onClick={handleResetPassword}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-xl font-bold shadow-lg flex justify-center items-center gap-2 transition-all"
+                      >
+                        Reset Password
+                      </button>
+                    </>
+                  )}
                   <button 
-                    onClick={() => setIsResettingPassword(false)}
+                    onClick={() => {
+                      setIsResettingPassword(false);
+                      setOtpSent(false);
+                    }}
                     className="w-full text-indigo-600 font-bold text-sm hover:underline"
                   >
                     Back to Login
@@ -1078,14 +1163,22 @@ function AttendanceApp() {
                     placeholder="Admin Email"
                     className="w-full px-4 py-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
                   />
-                  <input
-                    type="password"
-                    value={adminPassword}
-                    onChange={(e) => setAdminPassword(e.target.value)}
-                    placeholder="Password"
-                    className="w-full px-4 py-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
-                    onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()}
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={adminPassword}
+                      onChange={(e) => setAdminPassword(e.target.value)}
+                      placeholder="Password"
+                      className="w-full px-4 py-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
+                      onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()}
+                    />
+                    <button 
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
                   <div className="text-right">
                     <button 
                       onClick={() => setIsResettingPassword(true)}
@@ -1138,12 +1231,12 @@ function TabButton({ active, onClick, icon, label }: { active: boolean; onClick:
   return (
     <button
       onClick={onClick}
-      className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-semibold transition-all ${
+      className={`flex-shrink-0 flex items-center justify-center gap-2 py-2.5 sm:py-3 px-4 sm:px-6 rounded-xl font-semibold transition-all text-sm sm:text-base ${
         active ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'
       }`}
     >
-      {React.cloneElement(icon as React.ReactElement, { className: 'w-5 h-5' })}
-      <span>{label}</span>
+      {React.cloneElement(icon as React.ReactElement, { className: 'w-4 h-4 sm:w-5 sm:h-5' })}
+      <span className="hidden xs:inline">{label}</span>
     </button>
   );
 }
