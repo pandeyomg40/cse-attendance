@@ -5,6 +5,7 @@ import nodemailer from 'nodemailer';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 import fs from 'fs';
 
 dotenv.config();
@@ -19,7 +20,7 @@ if (!admin.apps.length) {
   });
 }
 
-const db = admin.firestore(firebaseConfig.firestoreDatabaseId);
+const db = getFirestore(admin.app(), firebaseConfig.firestoreDatabaseId);
 
 const app = express();
 app.use(cors());
